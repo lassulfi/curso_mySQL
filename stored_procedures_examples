@@ -1,0 +1,84 @@
+-- A linha abaixo cria a tabela tb_pessoas
+create table tb_pessoas(
+	idpessoa int auto_increment not null,
+    desnome varchar(256) not null,
+    dtcadastro timestamp not null default current_timestamp(),
+    constraint PK_pessoas primary key (idpessoa)
+) engine = InnoDB;
+
+-- A linha abaixo cria a tabela tb_funcionarios
+create table tb_funcionarios(
+	idfuncionario int auto_increment not null,
+    idpessoa int not null,
+    vlsalario decimal(10,2) not null default 1000.00,
+    dtadmissao date not null,
+    constraint PK_funcionarios primary key(idfuncionario),
+    constraint FK_funcionarios_pessoas foreign key(idpessoa)
+		references tb_pessoas(idpessoa)
+);
+
+-- troca o delimitador de comandos MySQL
+delimiter $$
+
+-- cria uma stored procedure
+create procedure sp_pessoa_save(
+	pdesnome varchar(256)
+)
+begin
+	insert into tb_pessoas values(null, pdesnome, current_date());
+    select * from tb_pessoas where idpessoa = last_insert_id();
+    
+end $$
+
+delimiter ;
+
+call sp_pessoa_save('Massaharu');
+
+drop procedure sp_pessoa_save;
+
+delimiter $$
+
+create procedure sp_funcionario_save(
+	pdesnome varchar(256),
+    pvlsalario dec(10,2),
+    pdtadmissao datetime
+)
+begin
+	
+    -- declara uma variável
+    declare vidpessoa int;
+    
+    -- inicia uma transacao
+    start transaction;
+    
+    -- verifica se a pessoa já está cadastrada. Caso não esteja executa o cadastro
+    if not exists(select idpessoa from tb_pessoas where desnome = pdesnome) then
+		insert into tb_pessoas values (null, pdesnome, current_date());
+        -- passa o id gerado na tb_pessoas para a variável local vidpessoa
+        set vidpessoa = last_insert_id();
+	else 
+		select 'Funcionário já cadastrado!' as resultado;
+        -- cancela a transacao
+        rollback;
+	end if;
+    
+    -- se a validação da tabela tb_pessoas ocorreu corretamente, realiza o cadastrado do registro
+    -- na tabela tb_funcionarios
+    if not exists(select idpessoa from tb_funcionarios where idpessoa = vidpessoa) then
+		insert into tb_funcionarios value(default, vidpessoa, pvlsalario, pdtadmissao);
+	else 
+		select 'Funcionário já cadastrado!' as resultado;
+        -- cancela a transacao
+        rollback;
+	end if;
+    
+    commit;
+    
+    -- exibe uma mensagem informado que o cadastrado ocorreu com sucesso
+    select 'Dados cadastrados com sucesso!' as resultado;
+    
+    
+end $$
+
+delimiter ;
+
